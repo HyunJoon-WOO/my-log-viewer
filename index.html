@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>Enuma_AIDT_LR뷰어_v2.0</title>
+  <title>JSON 로그 – 툴바 겹침 해제</title>
   <style>
     html, body { height:100%; margin:0; padding:0; }
     body { font-family:'Noto Sans KR',sans-serif; background:#f7f7fa; font-size:12px; overflow:hidden; }
@@ -30,9 +30,18 @@
       background:#245ab8; border-color:#245ab8;
     }
 
+    /* 툴바 높이만큼 밀어내기 */
+    .content-wrapper {
+      padding-top: 48px;
+      height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      overflow: hidden;
+    }
+
     /* 레이아웃 */
     .split {
-      display:flex; height:calc(100vh - 48px); margin-top:48px;
+      display:flex; flex:1; overflow:hidden;
     }
     .sidebar {
       background:#252c38; color:#ccc; overflow-y:auto;
@@ -59,58 +68,38 @@
     .section { margin-bottom:32px; }
     .idx { font-size:11px; color:#666; margin-bottom:6px; }
 
-    /* 테이블 기본 스타일 (수정 전 버전, 너비 고정) */
+    /* 테이블 스타일 */
     .main-content table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      background: #fff;
+      width:100%; border-collapse:collapse; margin-top:8px; background:#fff;
     }
     .main-content th,
     .main-content td {
-      border: 1px solid #ddd;
-      padding: 6px 10px;
-      vertical-align: top;
-      user-select: text;
+      border:1px solid #ddd; padding:6px 10px; vertical-align:top;
+      user-select:text;
     }
-    /* 키 컬럼: 최소 너비, 줄바꿈 없이 */
     .main-content th {
-      background: #f0f2f5;
-      white-space: nowrap;
-      width: 1%;
-      text-align: left;
+      background:#f0f2f5; white-space:nowrap; width:1%; text-align:left;
     }
-    /* 값 컬럼: 자동으로 남은 공간 채움 */
-    .main-content td {
-      width: auto;
-    }
-    /* 중첩 테이블은 자동 너비 */
+    .main-content td { width:auto; }
     .main-content table table {
-      margin: 8px 0 8px 16px;
-      width: auto;
+      margin:8px 0 8px 16px; width:auto;
     }
 
     /* 팝업 */
     .dimmed {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 1000;
+      position:fixed; inset:0; background:rgba(0,0,0,0.5);
+      display:flex; align-items:center; justify-content:center; z-index:1000;
     }
     .popup {
-      background: #fff; padding:24px; border-radius:6px;
-      min-width: 840px; max-width: 96vw;
-      box-shadow: 0 4px 20px #0003;
+      background:#fff; padding:24px; border-radius:6px;
+      min-width:840px; max-width:96vw; box-shadow:0 4px 20px #0003;
     }
     .popup textarea {
       width:100%; height:300px; font-family:monospace; padding:8px;
-      border:1px solid #ccc; border-radius:4px;
-      user-select:text;
+      border:1px solid #ccc; border-radius:4px; user-select:text;
     }
     .popup .btn {
-      margin-top:12px; padding:6px 16px;
-      border:none; border-radius:4px;
+      margin-top:12px; padding:6px 16px; border:none; border-radius:4px;
       cursor:pointer; font-size:13px;
     }
     .popup .confirm { background:#2869ed; color:#fff; }
@@ -127,19 +116,21 @@
     <button id="show-input-btn">Input Data</button>
   </div>
 
-  <div class="split">
-    <nav class="sidebar">
-      <h3>로그 인덱스</h3>
-      <ul id="index-list"></ul>
-    </nav>
-    <div class="resizer" id="resizer"></div>
-    <div class="main-content" id="container"></div>
+  <div class="content-wrapper">
+    <div class="split">
+      <nav class="sidebar">
+        <h3>로그 인덱스</h3>
+        <ul id="index-list"></ul>
+      </nav>
+      <div class="resizer" id="resizer"></div>
+      <div class="main-content" id="container"></div>
+    </div>
   </div>
 
   <div class="dimmed" id="popup" style="display:none;">
     <div class="popup">
       <h4>Input Data</h4>
-      <p>LR 데이터를 형식에 맞게 긁어서 넣어주세요. (데이터가 중간에 끊기거나 누락된 경우 파싱에 실패할 수 있습니다.)</p>
+      <p>Python dict 블록, <code>Timestamp('…')</code> 지원.</p>
       <textarea id="input-text" placeholder="데이터를 붙여넣으세요."></textarea>
       <div id="input-error" style="color:#d42b1a;font-size:11px;margin-top:4px;"></div>
       <button class="btn confirm" id="apply-btn">확인</button>
@@ -150,7 +141,7 @@
   <script>
     let data = [];
 
-    // 팝업 토글
+    // 팝업 열기/닫기
     const popup = document.getElementById('popup');
     document.getElementById('show-input-btn').onclick = () => {
       popup.style.display = 'flex';
@@ -159,7 +150,7 @@
     };
     document.getElementById('cancel-btn').onclick = () => popup.style.display = 'none';
 
-    // 입력 파서
+    // eval 기반 파서
     function parseUserInput(str) {
       str = str.replace(/Timestamp\(['"]([^'"]+)['"]\)/g, '"$1"');
       const parts = str.trim().split(/\r?\n(?=\s*{)/);
@@ -186,23 +177,21 @@
       }
     };
 
-    // 재귀 테이블 렌더러 (students만 줄바꿈)
+    // 재귀 테이블 렌더러 (students 줄바꿈)
     function objectToTable(obj, key='') {
       if (obj == null || ['string','number','boolean'].includes(typeof obj)) return String(obj);
       if (Array.isArray(obj)) {
         const prim = obj.every(v=>v==null||['string','number','boolean'].includes(typeof v));
         if (prim) {
-          if (key==='students') {
-            // 쉼표 구분 후 줄바꿈
-            return obj.join(',').split(',').map(s=>s.trim()).join('<br>');
-          }
-          return obj.join(', ');
+          return key==='students'
+            ? obj.map(s=>s).join('<br>')
+            : obj.join(', ');
         }
         return obj.map(el=>objectToTable(el)).join('');
       }
-      let rows='';
+      let rows = '';
       Object.entries(obj).forEach(([k,v])=>{
-        rows+=`<tr><th>${k}</th><td>${objectToTable(v,k)}</td></tr>`;
+        rows += `<tr><th>${k}</th><td>${objectToTable(v,k)}</td></tr>`;
       });
       return `<table>${rows}</table>`;
     }
@@ -220,25 +209,25 @@
     // 렌더
     function render() {
       sortData();
-      const idxList=document.getElementById('index-list');
-      const container=document.getElementById('container');
-      idxList.innerHTML=''; container.innerHTML='';
+      const idxList = document.getElementById('index-list');
+      const container = document.getElementById('container');
+      idxList.innerHTML = ''; container.innerHTML = '';
 
-      data.forEach((row,i)=>{
-        const rec=row.record||{};
-        const ev=rec.eventName||'';
-        const ak=rec.activity?.activityKey||'';
-        const at=rec.activity?.activityType!=null?rec.activity.activityType:'';
+      data.forEach((row,i) => {
+        const rec = row.record||{};
+        const ev = rec.eventName||'';
+        const ak = rec.activity?.activityKey||'';
+        const at = rec.activity?.activityType!=null ? rec.activity.activityType : '';
 
         // 인덱스
-        const li=document.createElement('li');
-        li.innerHTML=`
+        const li = document.createElement('li');
+        li.innerHTML = `
           <span class="cat">createdAt: ${row.createdAt}</span>
           <span class="ename">${ev}</span>
           <span class="cat">activityKey: ${ak}</span>
           <span class="cat">activityType: ${at}</span>
         `;
-        li.onclick=()=> {
+        li.onclick = () => {
           document.getElementById(`sec${i}`).scrollIntoView({behavior:'smooth'});
           idxList.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
           li.classList.add('active');
@@ -246,9 +235,9 @@
         idxList.appendChild(li);
 
         // 본문
-        const sec=document.createElement('div');
-        sec.id=`sec${i}`; sec.className='section';
-        sec.innerHTML=`
+        const sec = document.createElement('div');
+        sec.id = `sec${i}`; sec.className = 'section';
+        sec.innerHTML = `
           <div class="idx">[${i+1}] createdAt: <b>${row.createdAt}</b> / eventName: <b>${ev}</b></div>
           ${objectToTable(row)}
         `;
@@ -260,22 +249,22 @@
     document.getElementById('sort-order').addEventListener('change', render);
 
     // 리사이저
-    const resizer=document.getElementById('resizer');
-    const sidebar=document.querySelector('.sidebar');
-    let x=0,w=0;
-    resizer.onmousedown=e=>{
+    const resizer = document.getElementById('resizer');
+    const sidebar = document.querySelector('.sidebar');
+    let x=0, w=0;
+    resizer.onmousedown = e => {
       x=e.clientX; w=sidebar.getBoundingClientRect().width;
-      document.onmousemove=ev=>{
+      document.onmousemove = ev => {
         const dx=ev.clientX-x;
-        sidebar.style.width=Math.min(Math.max(w+dx,150),window.innerWidth*0.8)+'px';
+        sidebar.style.width = Math.min(Math.max(w+dx,150),window.innerWidth*0.8) + 'px';
       };
-      document.onmouseup=()=>{ document.onmousemove=null; document.onmouseup=null; };
+      document.onmouseup = () => { document.onmousemove=null; document.onmouseup=null; };
     };
 
-    // 초기 테스트
-    const testData=`{'createdAt': Timestamp('2025-05-20 09:29:05.649012'), 'record': '{"students":["a","b","c"],"eventName":"OpenLesson","activity":{"activityKey":"x","activityType":1}}', 'uuid':'uid','delivered':1}
-{'createdAt': Timestamp('2025-05-20 09:30:05.000000'), 'record': '{"students":["d","e"],"eventName":"HandInAnswer","activity":{"activityKey":"y","activityType":2}}', 'uuid':'uid2','delivered':1}`;
-    data=parseUserInput(testData);
+    // 초기 테스트 데이터
+    const testData = `{'createdAt': Timestamp('2025-05-20 09:29:05.649012'),'record':'{"students":["a","b","c"],"eventName":"OpenLesson","activity":{"activityKey":"x","activityType":1}}','uuid':'uid','delivered':1}
+{'createdAt': Timestamp('2025-05-20 09:30:05.000000'),'record':'{"students":["d","e"],"eventName":"HandInAnswer","activity":{"activityKey":"y","activityType":2}}','uuid':'uid2','delivered':1}`;
+    data = parseUserInput(testData);
     render();
   </script>
 </body>
