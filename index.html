@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>AIDT-LR 뷰어 v2.0</title>
-  <style>
+   <style>
     html, body { height:100%; margin:0; padding:0; }
     body { font-family:'Noto Sans KR',sans-serif; background:#f7f7fa; font-size:12px; overflow:hidden; }
 
@@ -25,12 +25,8 @@
       background:#fff; cursor:pointer; transition:background .2s, border-color .2s;
     }
     .toolbar select:focus, .toolbar button:focus { outline:none; border-color:#2869ed; }
-    .toolbar button {
-      background:#2869ed; color:#fff; border-color:#2869ed;
-    }
-    .toolbar button:hover {
-      background:#245ab8; border-color:#245ab8;
-    }
+    .toolbar button { background:#2869ed; color:#fff; border-color:#2869ed; }
+    .toolbar button:hover { background:#245ab8; border-color:#245ab8; }
 
     /* 체크박스 스타일 */
     .filter-container label {
@@ -49,17 +45,12 @@
       border-color:#2869ed;
     }
     .filter-container input[type=checkbox]:checked::after {
-      content:'✔';
-      font-size:12px; color:#fff;
+      content:'✔'; font-size:12px; color:#fff;
       position:absolute; top:0; left:2px;
     }
 
-    /* 툴바 높이만큼 밀어내기 */
-    .content-wrapper {
-      padding-top:48px;
-      height:100vh; box-sizing:border-box;
-      display:flex; overflow:hidden;
-    }
+    /* 툴바 밀어내기 */
+    .content-wrapper { padding-top:48px; height:100vh; box-sizing:border-box; display:flex; overflow:hidden; }
 
     /* 레이아웃 */
     .split { display:flex; flex:1; overflow:hidden; }
@@ -88,21 +79,16 @@
     .section { margin-bottom:32px; }
     .idx { font-size:11px; color:#666; margin-bottom:6px; }
 
-    /* 테이블 스타일 */
-    .main-content table {
-      width:100%; border-collapse:collapse; margin-top:8px; background:#fff;
-    }
+    /* 테이블 */
+    .main-content table { width:100%; border-collapse:collapse; margin-top:8px; background:#fff; }
     .main-content th, .main-content td {
-      border:1px solid #ddd; padding:6px 10px; vertical-align:top;
-      user-select:text;
+      border:1px solid #ddd; padding:6px 10px; vertical-align:top; user-select:text;
     }
     .main-content th {
       background:#f0f2f5; white-space:nowrap; width:1%; text-align:left;
     }
     .main-content td { width:auto; }
-    .main-content table table {
-      margin:8px 0 8px 16px; width:auto;
-    }
+    .main-content table table { margin:8px 0 8px 16px; width:auto; }
 
     /* 팝업 */
     .dimmed {
@@ -117,19 +103,14 @@
       width:100%; height:300px; font-family:monospace; padding:8px;
       border:1px solid #ccc; border-radius:4px;
     }
-    .popup .btn {
-      margin-top:12px; padding:6px 16px; border:none; border-radius:4px;
-      cursor:pointer; font-size:13px;
-    }
+    .popup .btn { margin-top:12px; padding:6px 16px; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
     .popup .confirm { background:#2869ed; color:#fff; }
     .popup .cancel { background:#ccc; margin-left:8px; }
   </style>
 </head>
 <body>
   <div class="toolbar">
-    <div class="group">
-      <button id="show-input-btn">Input Data</button>
-    </div>
+    <div class="group"><button id="show-input-btn">Input Data</button></div>
     <div class="separator"></div>
     <div class="group">
       <label for="sort-order">정렬:</label>
@@ -138,9 +119,7 @@
         <option value="desc">시간 내림차순</option>
       </select>
     </div>
-    
     <div class="separator"></div>
-    <label for="filter">이벤트 필터 :</label>
     <div class="group filter-container" id="filter-container"></div>
   </div>
 
@@ -158,7 +137,7 @@
   <div class="dimmed" id="popup" style="display:none;">
     <div class="popup">
       <h4>Input Data</h4>
-      <p>LR 데이터 전체를 가공하지 않은 채로 붙여넣어주세요.</p>
+      <p>Python dict 블록, <code>Timestamp('…')</code> 지원.</p>
       <textarea id="input-text" placeholder="데이터를 붙여넣으세요."></textarea>
       <div id="input-error" style="color:#d42b1a;font-size:11px;margin-top:4px;"></div>
       <button class="btn confirm" id="apply-btn">확인</button>
@@ -168,95 +147,49 @@
 
   <script>
     let data = [];
-
     const popup = document.getElementById('popup');
-    document.getElementById('show-input-btn').onclick = () => {
-      popup.style.display = 'flex';
-      document.getElementById('input-text').value = '';
-      document.getElementById('input-error').textContent = '';
-    };
+    document.getElementById('show-input-btn').onclick = () => { popup.style.display = 'flex'; document.getElementById('input-text').value = ''; document.getElementById('input-error').textContent = ''; };
     document.getElementById('cancel-btn').onclick = () => popup.style.display = 'none';
 
     function parseUserInput(str) {
       str = str.replace(/Timestamp\(['"]([^'"]+)['"]\)/g, '"$1"');
       const parts = str.trim().split(/\r?\n(?=\s*{)/);
       const arr = eval('[' + parts.join(',') + ']');
-      arr.forEach(o => {
-        if (typeof o.record === 'string') {
-          try { o.record = JSON.parse(o.record); } catch(_) {}
-        }
-      });
+      arr.forEach(o => { if (typeof o.record === 'string') { try { o.record = JSON.parse(o.record); } catch(_) {} } });
       return arr;
     }
 
     function populateEventFilters() {
-      const container = document.getElementById('filter-container');
-      container.innerHTML = ''; const names = Array.from(new Set(data.map(r=>r.record.eventName||'').filter(n=>n))).sort();
-      const all = document.createElement('label');
-      all.innerHTML = `<input type="checkbox" id="filter-all" checked>전체  | `;
+      const container = document.getElementById('filter-container'); container.innerHTML = '';
+      const order = ["JoinLesson","OpenLesson","SetActivitySession","StartActivity","HandInAnswer","EndActivity","LeaveLesson"];
+      const names = Array.from(new Set(data.map(r=>r.record.eventName||'').filter(n=>n)));
+      const ordered = order.filter(n=>names.includes(n)).concat(names.filter(n=>!order.includes(n)).sort());
+      const all = document.createElement('label'); all.innerHTML = `<input type="checkbox" id="filter-all" checked>전체`;
       container.appendChild(all);
-      names.forEach(name=>{ const lbl=document.createElement('label');
-        lbl.innerHTML = `<input type="checkbox" class="filter-event" value="${name}" checked>${name}`;
-        container.appendChild(lbl);
-      });
-      document.getElementById('filter-all').addEventListener('change', e=>{
-        document.querySelectorAll('.filter-event').forEach(cb=>cb.checked=e.target.checked);
-        render();
-      });
-      document.querySelectorAll('.filter-event').forEach(cb=>cb.addEventListener('change', ()=>{
-        document.getElementById('filter-all').checked =
-          Array.from(document.querySelectorAll('.filter-event')).every(c=>c.checked);
-        render();
-      }));
+      ordered.forEach(name => { const lbl = document.createElement('label'); lbl.innerHTML = `<input type="checkbox" class="filter-event" value="${name}" checked>${name}`; container.appendChild(lbl); });
+      document.getElementById('filter-all').addEventListener('change', e=>{ document.querySelectorAll('.filter-event').forEach(cb=>cb.checked=e.target.checked); render(); });
+      document.querySelectorAll('.filter-event').forEach(cb=>cb.addEventListener('change', ()=>{ document.getElementById('filter-all').checked = Array.from(document.querySelectorAll('.filter-event')).every(c=>c.checked); render(); }));
     }
 
     document.getElementById('apply-btn').onclick = () => {
-      try { const arr = parseUserInput(document.getElementById('input-text').value);
-        if(!arr.length||!arr[0].createdAt) throw new Error('createdAt 필수');
-        data=arr; popup.style.display='none'; populateEventFilters(); render();
-      } catch(e) { document.getElementById('input-error').textContent = '파싱 오류: '+e.message; }
+      try { const arr = parseUserInput(document.getElementById('input-text').value); if(!arr.length||!arr[0].createdAt) throw new Error('createdAt 필수'); data=arr; popup.style.display='none'; populateEventFilters(); render(); } catch(e) { document.getElementById('input-error').textContent = '파싱 오류: '+e.message; }
     };
 
-    function getSelectedEvents(){
-      return Array.from(document.querySelectorAll('.filter-event')).filter(c=>c.checked).map(c=>c.value);
-    }
-    function sortData(arr){ const mode=document.getElementById('sort-order').value;
-      return arr.slice().sort((a,b)=> mode==='asc'?new Date(a.createdAt)-new Date(b.createdAt):new Date(b.createdAt)-new Date(a.createdAt)); }
+    function getSelectedEvents(){ return Array.from(document.querySelectorAll('.filter-event')).filter(c=>c.checked).map(c=>c.value); }
+    function sortData(arr){ const mode=document.getElementById('sort-order').value; return arr.slice().sort((a,b)=> mode==='asc'? new Date(a.createdAt)-new Date(b.createdAt): new Date(b.createdAt)-new Date(a.createdAt)); }
 
     function objectToTable(obj,k=''){
-      if(obj==null||['string','number','boolean'].includes(typeof obj))return String(obj);
-      if(Array.isArray(obj)){ const prim=obj.every(v=>v==null||['string','number','boolean'].includes(typeof v));
-        return prim?(k==='students'?obj.join('<br>'):obj.join(', ')):obj.map(v=>objectToTable(v)).join(''); }
-      let r='';Object.entries(obj).forEach(([kk,v])=>r+=`<tr><th>${kk}</th><td>${objectToTable(v,kk)}</td></tr>`);
+      if(obj==null||['string','number','boolean'].includes(typeof obj)) return String(obj);
+      if(Array.isArray(obj)){ const prim=obj.every(v=>v==null||['string','number','boolean'].includes(typeof v)); if(prim) return k==='students'?obj.join('<br>'):obj.join(', '); return obj.map(v=>objectToTable(v)).join(''); }
+      let r=''; Object.entries(obj).forEach(([kk,v])=>r+=`<tr><th>${kk}</th><td>${objectToTable(v,kk)}</td></tr>`);
       return `<table>${r}</table>`;
     }
 
-    function render(){
-      const li=document.getElementById('index-list'), cn=document.getElementById('container'); li.innerHTML='';cn.innerHTML='';
-      const sel=getSelectedEvents(); sortData(data).filter(r=>sel.includes(r.record.eventName)).forEach((row,i)=>{
-        const rec=row.record||{},ev=rec.eventName||'',ak=rec.activity?.activityKey||'',at=rec.activity?.activityType!=null?rec.activity.activityType:'';
-        const liEl=document.createElement('li');
-        liEl.innerHTML=`<span class="cat">createdAt: ${row.createdAt}</span><span class="ename">${ev}</span><span class="cat">activityKey: ${ak}</span><span class="cat">activityType: ${at}</span>`;
-        liEl.onclick=()=>{ document.getElementById(`sec${i}`).scrollIntoView({behavior:'smooth'});
-          li.querySelectorAll('li').forEach(x=>x.classList.remove('active')); liEl.classList.add('active'); };
-        li.appendChild(liEl);
-        const sec=document.createElement('div'); sec.id=`sec${i}`; sec.className='section';
-        sec.innerHTML=`<div class="idx">[${i+1}] createdAt: <b>${row.createdAt}</b> / eventName: <b>${ev}</b></div>`+objectToTable(row);
-        cn.appendChild(sec);
-      });
-    }
+    function render(){ const li=document.getElementById('index-list'), cn=document.getElementById('container'); li.innerHTML=''; cn.innerHTML=''; const sel=getSelectedEvents(); sortData(data).filter(r=>sel.includes(r.record.eventName)).forEach((row,i)=>{ const rec=row.record||{}, ev=rec.eventName||'', ak=rec.activity?.activityKey||'', at=rec.activity?.activityType!=null?rec.activity.activityType:''; const liEl=document.createElement('li'); liEl.innerHTML=`<span class="cat">createdAt: ${row.createdAt}</span><span class="ename">${ev}</span><span class="cat">activityKey: ${ak}</span><span class="cat">activityType: ${at}</span>`; liEl.onclick=()=>{ document.getElementById(`sec${i}`).scrollIntoView({behavior:'smooth'}); li.querySelectorAll('li').forEach(x=>x.classList.remove('active')); liEl.classList.add('active'); }; li.appendChild(liEl); const sec=document.createElement('div'); sec.id=`sec${i}`; sec.className='section'; sec.innerHTML=`<div class="idx">[${i+1}] createdAt: <b>${row.createdAt}</b> / eventName: <b>${ev}</b></div>`+objectToTable(row); cn.appendChild(sec); }); }
     document.getElementById('sort-order').addEventListener('change', render);
-
-    const rz=document.getElementById('resizer'), sb=document.querySelector('.sidebar');let xx=0,ww=0;
-    rz.onmousedown=e=>{ xx=e.clientX;ww=sb.getBoundingClientRect().width;
-      document.onmousemove=ee=>{ sb.style.width=Math.min(Math.max(ww+ee.clientX-xx,150),window.innerWidth*0.8)+'px';};
-      document.onmouseup=()=>{document.onmousemove=null;document.onmouseup=null;};
-    };
-
-    const testData=`{'createdAt': Timestamp('2025-05-15 04:18:08'), 'record':'{"eventName":"OpenLesson","students":["A","B"],"activity":{"activityKey":"x","activityType":1}}'}
-{'createdAt': Timestamp('2025-05-15 04:17:57'), 'record':'{"eventName":"HandInAnswer","students":["C"],"activity":{"activityKey":"y","activityType":2}}'}`;
-    data=parseUserInput(testData);
-    populateEventFilters(); render();
+    const rz=document.getElementById('resizer'), sb=document.querySelector('.sidebar'); let xx=0, ww=0; rz.onmousedown=e=>{ xx=e.clientX; ww=sb.getBoundingClientRect().width; document.onmousemove=ee=>{ sb.style.width=Math.min(Math.max(ww+ee.clientX-xx,150),window.innerWidth*0.8)+'px'; }; document.onmouseup=()=>{document.onmousemove=null;document.onmouseup=null;}; };
+    const testData=`{'createdAt': Timestamp('2025-05-15 04:18:08'), 'record':'{"eventName":"OpenLesson","students":["A","B"],"activity":{"activityKey":"x","activityType":1}}'}\n{'createdAt': Timestamp('2025-05-15 04:17:57'), 'record':'{"eventName":"HandInAnswer","students":["C"],"activity":{"activityKey":"y","activityType":2}}'}`;
+    data=parseUserInput(testData); populateEventFilters(); render();
   </script>
 </body>
 </html>
