@@ -12,17 +12,19 @@
       position: fixed; top:0; left:0; right:0; height:48px;
       background:#fff; display:flex; align-items:center;
       padding:0 16px; box-shadow:0 2px 4px rgba(0,0,0,0.1); z-index:200;
+      gap:8px;
     }
-    .toolbar label { margin-right:8px; font-size:13px; color:#333; }
+    .toolbar .group { display:flex; align-items:center; gap:8px; }
+    .toolbar .separator {
+      width:1px; height:24px; background:#ccc; margin:0 8px;
+    }
+    .toolbar label { font-size:13px; color:#333; margin:0; }
     .toolbar select, .toolbar button {
-      height:32px; font-size:13px; margin-right:12px;
-      padding:0 12px; border:1px solid #ccc; border-radius:4px;
-      background:#fff; cursor:pointer;
-      transition:background .2s, border-color .2s;
+      height:32px; font-size:13px; padding:0 12px;
+      border:1px solid #ccc; border-radius:4px;
+      background:#fff; cursor:pointer; transition:background .2s, border-color .2s;
     }
-    .toolbar select:focus, .toolbar button:focus {
-      outline:none; border-color:#2869ed;
-    }
+    .toolbar select:focus, .toolbar button:focus { outline:none; border-color:#2869ed; }
     .toolbar button {
       background:#2869ed; color:#fff; border-color:#2869ed;
     }
@@ -30,19 +32,37 @@
       background:#245ab8; border-color:#245ab8;
     }
 
+    /* 체크박스 스타일 */
+    .filter-container label {
+      display:flex; align-items:center; cursor:pointer;
+      user-select:none; font-size:13px; color:#333;
+    }
+    .filter-container input[type=checkbox] {
+      -webkit-appearance:none; appearance:none;
+      width:16px; height:16px; margin:0 6px 0 0;
+      border:2px solid #aaa; border-radius:4px;
+      position:relative; cursor:pointer;
+      transition:background .2s, border-color .2s;
+    }
+    .filter-container input[type=checkbox]:checked {
+      background:#2869ed;
+      border-color:#2869ed;
+    }
+    .filter-container input[type=checkbox]:checked::after {
+      content:'✔';
+      font-size:12px; color:#fff;
+      position:absolute; top:0; left:2px;
+    }
+
     /* 툴바 높이만큼 밀어내기 */
     .content-wrapper {
-      padding-top: 48px;
-      height: 100vh;
-      box-sizing: border-box;
-      display: flex;
-      overflow: hidden;
+      padding-top:48px;
+      height:100vh; box-sizing:border-box;
+      display:flex; overflow:hidden;
     }
 
     /* 레이아웃 */
-    .split {
-      display:flex; flex:1; overflow:hidden;
-    }
+    .split { display:flex; flex:1; overflow:hidden; }
     .sidebar {
       background:#252c38; color:#ccc; overflow-y:auto;
       padding:16px; box-shadow:1px 0 6px #0002;
@@ -72,8 +92,7 @@
     .main-content table {
       width:100%; border-collapse:collapse; margin-top:8px; background:#fff;
     }
-    .main-content th,
-    .main-content td {
+    .main-content th, .main-content td {
       border:1px solid #ddd; padding:6px 10px; vertical-align:top;
       user-select:text;
     }
@@ -96,7 +115,7 @@
     }
     .popup textarea {
       width:100%; height:300px; font-family:monospace; padding:8px;
-      border:1px solid #ccc; border-radius:4px; user-select:text;
+      border:1px solid #ccc; border-radius:4px;
     }
     .popup .btn {
       margin-top:12px; padding:6px 16px; border:none; border-radius:4px;
@@ -108,12 +127,21 @@
 </head>
 <body>
   <div class="toolbar">
-    <label for="sort-order">정렬:</label>
-    <select id="sort-order">
-      <option value="asc">시간 오름차순</option>
-      <option value="desc">시간 내림차순</option>
-    </select>
-    <button id="show-input-btn">Input Data</button>
+    <div class="group">
+      <button id="show-input-btn">Input Data</button>
+    </div>
+    <div class="separator"></div>
+    <div class="group">
+      <label for="sort-order">정렬:</label>
+      <select id="sort-order">
+        <option value="asc">시간 오름차순</option>
+        <option value="desc">시간 내림차순</option>
+      </select>
+    </div>
+    
+    <div class="separator"></div>
+    <label for="filter">이벤트 필터 :</label>
+    <div class="group filter-container" id="filter-container"></div>
   </div>
 
   <div class="content-wrapper">
@@ -141,7 +169,6 @@
   <script>
     let data = [];
 
-    // 팝업 열기/닫기
     const popup = document.getElementById('popup');
     document.getElementById('show-input-btn').onclick = () => {
       popup.style.display = 'flex';
@@ -150,7 +177,6 @@
     };
     document.getElementById('cancel-btn').onclick = () => popup.style.display = 'none';
 
-    // eval 기반 파서
     function parseUserInput(str) {
       str = str.replace(/Timestamp\(['"]([^'"]+)['"]\)/g, '"$1"');
       const parts = str.trim().split(/\r?\n(?=\s*{)/);
@@ -163,109 +189,74 @@
       return arr;
     }
 
-    // Input Data 확인
-    document.getElementById('apply-btn').onclick = () => {
-      try {
-        const txt = document.getElementById('input-text').value;
-        const arr = parseUserInput(txt);
-        if (!arr.length || !arr[0].createdAt) throw new Error('createdAt 필수');
-        data = arr;
-        popup.style.display = 'none';
+    function populateEventFilters() {
+      const container = document.getElementById('filter-container');
+      container.innerHTML = ''; const names = Array.from(new Set(data.map(r=>r.record.eventName||'').filter(n=>n))).sort();
+      const all = document.createElement('label');
+      all.innerHTML = `<input type="checkbox" id="filter-all" checked>전체  | `;
+      container.appendChild(all);
+      names.forEach(name=>{ const lbl=document.createElement('label');
+        lbl.innerHTML = `<input type="checkbox" class="filter-event" value="${name}" checked>${name}`;
+        container.appendChild(lbl);
+      });
+      document.getElementById('filter-all').addEventListener('change', e=>{
+        document.querySelectorAll('.filter-event').forEach(cb=>cb.checked=e.target.checked);
         render();
-      } catch (e) {
-        document.getElementById('input-error').textContent = '파싱 오류: ' + e.message;
-      }
+      });
+      document.querySelectorAll('.filter-event').forEach(cb=>cb.addEventListener('change', ()=>{
+        document.getElementById('filter-all').checked =
+          Array.from(document.querySelectorAll('.filter-event')).every(c=>c.checked);
+        render();
+      }));
+    }
+
+    document.getElementById('apply-btn').onclick = () => {
+      try { const arr = parseUserInput(document.getElementById('input-text').value);
+        if(!arr.length||!arr[0].createdAt) throw new Error('createdAt 필수');
+        data=arr; popup.style.display='none'; populateEventFilters(); render();
+      } catch(e) { document.getElementById('input-error').textContent = '파싱 오류: '+e.message; }
     };
 
-    // 재귀 테이블 렌더러 (students 줄바꿈)
-    function objectToTable(obj, key='') {
-      if (obj == null || ['string','number','boolean'].includes(typeof obj)) return String(obj);
-      if (Array.isArray(obj)) {
-        const prim = obj.every(v=>v==null||['string','number','boolean'].includes(typeof v));
-        if (prim) {
-          return key==='students'
-            ? obj.map(s=>s).join('<br>')
-            : obj.join(', ');
-        }
-        return obj.map(el=>objectToTable(el)).join('');
-      }
-      let rows = '';
-      Object.entries(obj).forEach(([k,v])=>{
-        rows += `<tr><th>${k}</th><td>${objectToTable(v,k)}</td></tr>`;
-      });
-      return `<table>${rows}</table>`;
+    function getSelectedEvents(){
+      return Array.from(document.querySelectorAll('.filter-event')).filter(c=>c.checked).map(c=>c.value);
+    }
+    function sortData(arr){ const mode=document.getElementById('sort-order').value;
+      return arr.slice().sort((a,b)=> mode==='asc'?new Date(a.createdAt)-new Date(b.createdAt):new Date(b.createdAt)-new Date(a.createdAt)); }
+
+    function objectToTable(obj,k=''){
+      if(obj==null||['string','number','boolean'].includes(typeof obj))return String(obj);
+      if(Array.isArray(obj)){ const prim=obj.every(v=>v==null||['string','number','boolean'].includes(typeof v));
+        return prim?(k==='students'?obj.join('<br>'):obj.join(', ')):obj.map(v=>objectToTable(v)).join(''); }
+      let r='';Object.entries(obj).forEach(([kk,v])=>r+=`<tr><th>${kk}</th><td>${objectToTable(v,kk)}</td></tr>`);
+      return `<table>${r}</table>`;
     }
 
-    // 정렬
-    function sortData() {
-      const mode = document.getElementById('sort-order').value;
-      data.sort((a,b)=>{
-        const ta=new Date(a.createdAt).getTime();
-        const tb=new Date(b.createdAt).getTime();
-        return mode==='asc'? ta-tb : tb-ta;
+    function render(){
+      const li=document.getElementById('index-list'), cn=document.getElementById('container'); li.innerHTML='';cn.innerHTML='';
+      const sel=getSelectedEvents(); sortData(data).filter(r=>sel.includes(r.record.eventName)).forEach((row,i)=>{
+        const rec=row.record||{},ev=rec.eventName||'',ak=rec.activity?.activityKey||'',at=rec.activity?.activityType!=null?rec.activity.activityType:'';
+        const liEl=document.createElement('li');
+        liEl.innerHTML=`<span class="cat">createdAt: ${row.createdAt}</span><span class="ename">${ev}</span><span class="cat">activityKey: ${ak}</span><span class="cat">activityType: ${at}</span>`;
+        liEl.onclick=()=>{ document.getElementById(`sec${i}`).scrollIntoView({behavior:'smooth'});
+          li.querySelectorAll('li').forEach(x=>x.classList.remove('active')); liEl.classList.add('active'); };
+        li.appendChild(liEl);
+        const sec=document.createElement('div'); sec.id=`sec${i}`; sec.className='section';
+        sec.innerHTML=`<div class="idx">[${i+1}] createdAt: <b>${row.createdAt}</b> / eventName: <b>${ev}</b></div>`+objectToTable(row);
+        cn.appendChild(sec);
       });
     }
-
-    // 렌더
-    function render() {
-      sortData();
-      const idxList = document.getElementById('index-list');
-      const container = document.getElementById('container');
-      idxList.innerHTML = ''; container.innerHTML = '';
-
-      data.forEach((row,i) => {
-        const rec = row.record||{};
-        const ev = rec.eventName||'';
-        const ak = rec.activity?.activityKey||'';
-        const at = rec.activity?.activityType!=null ? rec.activity.activityType : '';
-
-        // 인덱스
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <span class="cat">createdAt: ${row.createdAt}</span>
-          <span class="ename">${ev}</span>
-          <span class="cat">activityKey: ${ak}</span>
-          <span class="cat">activityType: ${at}</span>
-        `;
-        li.onclick = () => {
-          document.getElementById(`sec${i}`).scrollIntoView({behavior:'smooth'});
-          idxList.querySelectorAll('li').forEach(x=>x.classList.remove('active'));
-          li.classList.add('active');
-        };
-        idxList.appendChild(li);
-
-        // 본문
-        const sec = document.createElement('div');
-        sec.id = `sec${i}`; sec.className = 'section';
-        sec.innerHTML = `
-          <div class="idx">[${i+1}] createdAt: <b>${row.createdAt}</b> / eventName: <b>${ev}</b></div>
-          ${objectToTable(row)}
-        `;
-        container.appendChild(sec);
-      });
-    }
-
-    // select 변경 시 렌더
     document.getElementById('sort-order').addEventListener('change', render);
 
-    // 리사이저
-    const resizer = document.getElementById('resizer');
-    const sidebar = document.querySelector('.sidebar');
-    let x=0, w=0;
-    resizer.onmousedown = e => {
-      x=e.clientX; w=sidebar.getBoundingClientRect().width;
-      document.onmousemove = ev => {
-        const dx=ev.clientX-x;
-        sidebar.style.width = Math.min(Math.max(w+dx,150),window.innerWidth*0.8) + 'px';
-      };
-      document.onmouseup = () => { document.onmousemove=null; document.onmouseup=null; };
+    const rz=document.getElementById('resizer'), sb=document.querySelector('.sidebar');let xx=0,ww=0;
+    rz.onmousedown=e=>{ xx=e.clientX;ww=sb.getBoundingClientRect().width;
+      document.onmousemove=ee=>{ sb.style.width=Math.min(Math.max(ww+ee.clientX-xx,150),window.innerWidth*0.8)+'px';};
+      document.onmouseup=()=>{document.onmousemove=null;document.onmouseup=null;};
     };
 
-    // 초기 테스트 데이터
-    const testData = `{'createdAt': Timestamp('2025-05-20 09:29:05.649012'),'record':'{"students":["a","b","c"],"eventName":"OpenLesson","activity":{"activityKey":"x","activityType":1}}','uuid':'uid','delivered':1}
-{'createdAt': Timestamp('2025-05-20 09:30:05.000000'),'record':'{"students":["d","e"],"eventName":"HandInAnswer","activity":{"activityKey":"y","activityType":2}}','uuid':'uid2','delivered':1}`;
-    data = parseUserInput(testData);
-    render();
+    const testData=`{'createdAt': Timestamp('2025-05-15 04:18:08'), 'record':'{"eventName":"OpenLesson","students":["A","B"],"activity":{"activityKey":"x","activityType":1}}'}
+{'createdAt': Timestamp('2025-05-15 04:17:57'), 'record':'{"eventName":"HandInAnswer","students":["C"],"activity":{"activityKey":"y","activityType":2}}'}`;
+    data=parseUserInput(testData);
+    populateEventFilters(); render();
   </script>
 </body>
 </html>
