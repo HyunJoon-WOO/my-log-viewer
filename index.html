@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>AIDT-LR 뷰어 v2.2</title>
+  <title>AIDT-LR 뷰어 v2.1</title>
   <style>
     html, body { height:100%; margin:0; padding:0; }
     body { font-family:'Noto Sans KR',sans-serif; background:#f7f7fa; font-size:12px; overflow:hidden; }
@@ -30,7 +30,7 @@
       height: 0;
       margin: 7px 0 7px 0;
       border: 0;
-      border-top: 1.5px dashed #ffb400cc;
+      border-top: 1.5px dashed #38b250cc;
       background: none;
       pointer-events: none;
     }
@@ -53,11 +53,52 @@
     .main-content td { width:auto; }
     .main-content table table { margin:8px 0 8px 16px; width:auto; }
     .dimmed { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; }
-    .popup { background:#fff; padding:24px; border-radius:6px; min-width:840px; max-width:96vw; box-shadow:0 4px 20px #0003; }
-    .popup textarea { width:100%; height:300px; font-family:monospace; padding:8px; border:1px solid #ccc; border-radius:4px; }
-    .popup .btn { margin-top:12px; padding:6px 16px; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
+    .popup { background:#fff; padding:36px; border-radius:9px; min-width:1260px; min-height:690px; max-width:96vw; box-shadow:0 6px 36px #0003; }
+    .popup textarea { width:100%; height:225px; font-family:monospace; padding:12px; border:1px solid #ccc; border-radius:6px; font-size:13px; }
+    .popup .btn { margin-top:14px; padding:8px 24px; border:none; border-radius:6px; cursor:pointer; font-size:15px; }
     .popup .confirm { background:#2869ed; color:#fff; }
-    .popup .cancel { background:#ccc; margin-left:8px; }
+    .popup .cancel { background:#ccc; margin-left:10px; }
+    #input-check-area { margin-top:18px; }
+    #input-check-area .btn { background:#ffb400; color:#222; margin-bottom:10px; }
+    #check-result { font-size:13px; background:#f7f7f7; padding:10px; border-radius:6px; max-height:525px; min-height:225px; overflow:auto; resize: vertical;}
+    #check-result table { width:100%; border-collapse:collapse; }
+    #check-result th, #check-result td { border:1px solid #ddd; padding:5px 10px; }
+    #check-result th { background:#f0f0e0; }
+    #check-result .invalid-blocks { margin-top:16px; }
+    #check-result .invalid-title { color:#d42b1a; font-size:13px; margin-bottom:6px; font-weight:bold; }
+    #check-result .invalid-chunk {
+      background:#fff4f4;
+      color:#d42b1a;
+      border:1px solid #ef9999;
+      font-family:monospace;
+      font-size:12px;
+      white-space:pre-wrap;
+      padding:8px;
+      border-radius:4px;
+      margin-bottom:5px;
+      display:block;
+    }
+    /* "문제 신고 / 개선 제안" 버튼 스타일 */
+    .toolbar .right-group {
+      margin-left:auto;
+      display:flex; align-items:center; gap:8px;
+    }
+    .suggest-btn {
+      background:#38b250;
+      color:#fff;
+      border:none;
+      border-radius:7px;
+      font-size:16px;
+      font-weight:600;
+      padding:8px 26px;
+      cursor:pointer;
+      transition:background 0.2s, box-shadow 0.2s;
+      box-shadow: 0 2px 8px #38b25022;
+      letter-spacing:-0.01em;
+    }
+    .suggest-btn:hover, .suggest-btn:focus {
+      background:#24923e;
+    }
   </style>
 </head>
 <body>
@@ -72,14 +113,21 @@
       </select>
     </div>
     <div class="separator"></div>
-      <label for="separator">이벤트 필터 :</label>
+    <label for="separator">이벤트 필터 :</label>
     <div class="group filter-container" id="filter-container"></div>
+    <!-- 오른쪽 끝에 위치하는 그룹 -->
+    <div class="right-group">
+      <button class="suggest-btn"
+        onclick="window.open('https://enuma.slack.com/archives/D08769EQE6L','_blank','noopener,noreferrer')">
+        문제 신고 / 개선 제안
+      </button>
+    </div>
   </div>
   <div class="content-wrapper">
     <div class="split">
       <nav class="sidebar">
         <h3>로그 인덱스</h3>
-        <span class="notice">ActivitySessionId가 동일한 경우 구분선으로 그룹핑됩니다.</span>
+        <span class="notice">동일한 ActivitySessionId는 구분선으로 그룹핑됩니다.</span>
         <ul id="index-list"></ul>
       </nav>
       <div class="resizer" id="resizer"></div>
@@ -89,8 +137,14 @@
   <div class="dimmed" id="popup" style="display:none;">
     <div class="popup">
       <h4>Input Data</h4>
-      <textarea id="input-text" placeholder="LR 기록만 누락된 정보 없이 붙여넣으세요.."></textarea>
-      <div id="input-error" style="color:#d42b1a;font-size:11px;margin-top:4px;"></div>
+      <div style="position:relative;">
+        <textarea id="input-text" placeholder="LR 기록만 누락된 정보 없이 붙여넣으세요.."></textarea>
+        <div id="input-error" style="color:#d42b1a;font-size:12px;margin-top:4px;"></div>
+      </div>
+      <div id="input-check-area">
+        <button class="btn" id="check-btn">정합성 체크</button>
+        <div id="check-result"></div>
+      </div>
       <button class="btn confirm" id="apply-btn">확인</button>
       <button class="btn cancel" id="cancel-btn">취소</button>
     </div>
@@ -98,8 +152,72 @@
   <script>
     let data = [];
     const popup = document.getElementById('popup');
-    document.getElementById('show-input-btn').onclick = () => { popup.style.display = 'flex'; document.getElementById('input-text').value = ''; document.getElementById('input-error').textContent = ''; };
+    const textarea = document.getElementById('input-text');
+    document.getElementById('show-input-btn').onclick = () => { 
+      popup.style.display = 'flex'; 
+      // textarea.value = '';  // 기존 입력값 유지
+      document.getElementById('input-error').textContent = '';
+      document.getElementById('check-result').innerHTML = '';
+    };
     document.getElementById('cancel-btn').onclick = () => popup.style.display = 'none';
+
+    // 정합성 체크 버튼 (그대로)
+    document.getElementById('check-btn').onclick = function(){
+      const raw = textarea.value;
+      const matches = raw.match(/\{'createdAt': Timestamp[\s\S]*?'delivered': 1\}/g) || [];
+      let html = '';
+      if(matches.length) {
+        html += `<b>총 ${matches.length}개의 정합성 데이터가 감지됨</b>`;
+        html += '<table>';
+        html += '<tr><th style="width:50px;">No</th><th>Raw Data</th></tr>';
+        matches.forEach((block, idx) => {
+          html += `<tr><td style="text-align:center;">${idx+1}</td>
+          <td style="font-family:monospace; white-space:pre;">${block.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</td></tr>`;
+        });
+        html += '</table>';
+      } else {
+        html = '<span style="color:#d42b1a">정합성에 맞는 데이터가 없습니다.</span>';
+      }
+      const allBlocks = [];
+      let regex = /\{'createdAt': Timestamp[\s\S]*?'delivered': 1\}/g;
+      let lastIndex = 0;
+      let m;
+      while((m = regex.exec(raw)) !== null){
+        if(m.index > lastIndex){
+          allBlocks.push({type:'invalid', text:raw.substring(lastIndex, m.index)});
+        }
+        allBlocks.push({type:'valid', text:m[0]});
+        lastIndex = regex.lastIndex;
+      }
+      if(lastIndex < raw.length){
+        allBlocks.push({type:'invalid', text:raw.substring(lastIndex)});
+      }
+      const invalidBlocks = allBlocks.filter(block=>block.type==='invalid' && block.text.trim().length);
+      if(invalidBlocks.length){
+        html += `<div class="invalid-blocks">
+          <div class="invalid-title">버려진 데이터 (${invalidBlocks.length}개)</div>
+          ${invalidBlocks.map(block=>`<div class="invalid-chunk">${block.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`).join('')}
+        </div>`;
+      }
+      document.getElementById('check-result').innerHTML = html;
+    };
+
+    // 파싱 시 정합성 데이터만 추출/파싱
+    document.getElementById('apply-btn').onclick = () => {
+      try {
+        // textarea에서 정합성에 맞는 블록만 추출
+        const raw = textarea.value;
+        const matches = raw.match(/\{'createdAt': Timestamp[\s\S]*?'delivered': 1\}/g);
+        if(!matches || !matches.length) throw new Error('정합성 데이터가 없습니다.');
+        // 파싱용 문자열 재생성 (줄바꿈으로 연결)
+        const parseStr = matches.join('\n');
+        const arr = parseUserInput(parseStr);
+        if(!arr.length||!arr[0].createdAt) throw new Error('createdAt 필수'); 
+        data=arr; popup.style.display='none'; populateEventFilters(); render(); 
+      } catch(e) { 
+        document.getElementById('input-error').textContent = '파싱 오류: '+e.message; 
+      }
+    };
 
     function parseUserInput(str) {
       str = str.replace(/Timestamp\(['"]([^'"]+)['"]\)/g, '"$1"');
@@ -121,16 +239,6 @@
       document.querySelectorAll('.filter-event').forEach(cb=>cb.addEventListener('change', ()=>{ document.getElementById('filter-all').checked = Array.from(document.querySelectorAll('.filter-event')).every(c=>c.checked); render(); }));
     }
 
-    document.getElementById('apply-btn').onclick = () => {
-      try { 
-        const arr = parseUserInput(document.getElementById('input-text').value); 
-        if(!arr.length||!arr[0].createdAt) throw new Error('createdAt 필수'); 
-        data=arr; popup.style.display='none'; populateEventFilters(); render(); 
-      } catch(e) { 
-        document.getElementById('input-error').textContent = '파싱 오류: '+e.message; 
-      }
-    };
-
     function getSelectedEvents(){ return Array.from(document.querySelectorAll('.filter-event')).filter(c=>c.checked).map(c=>c.value); }
     function sortData(arr){ const mode=document.getElementById('sort-order').value; return arr.slice().sort((a,b)=> mode==='asc'? new Date(a.createdAt)-new Date(b.createdAt): new Date(b.createdAt)-new Date(a.createdAt)); }
 
@@ -148,7 +256,6 @@
     }
 
     function getGroupingKey(row, idx) {
-      // activitySessionId가 있으면 그 값, 없으면 no-session-idx(각각 독립 그룹)
       const sessionId = getActivitySessionId(row);
       return sessionId !== undefined ? sessionId : 'no-session-' + idx;
     }
@@ -162,17 +269,14 @@
         const rec=row.record||{}, ev=rec.eventName||'';
         const ak=rec.activity?.activityKey;
         const at=rec.activity?.activityType;
-
         const currentGroupingKey = getGroupingKey(row, i);
         const prevGroupingKey = i === 0 ? null : getGroupingKey(rows[i-1], i-1);
 
-        // 그룹 시작마다 구분선(한줄만)
         if(i === 0 || currentGroupingKey !== prevGroupingKey){
           const div = document.createElement('li');
           div.className = 'divider';
           li.appendChild(div);
         }
-
         let innerHTML = `<span class="cat">createdAt: ${row.createdAt}</span><span class="ename">${ev}</span>`;
         if(ak !== undefined) innerHTML += `<span class="cat">activityKey: ${ak}</span>`;
         if(at !== undefined) innerHTML += `<span class="cat">activityType: ${at}</span>`;
