@@ -165,7 +165,7 @@
     // 정합성 체크 버튼 (그대로)
     document.getElementById('check-btn').onclick = function(){
       const raw = textarea.value;
-      const matches = raw.match(/\{'createdAt': Timestamp[\s\S]*?'delivered': 1\}/g) || [];
+      const matches = raw.match(/\{'createdAt': Timestamp[\s\S]*?'delivered': \s*\d+\}/g) || [];
       let html = '';
       if(matches.length) {
         html += `<b>총 ${matches.length}개의 정합성 데이터가 감지됨</b>`;
@@ -180,7 +180,7 @@
         html = '<span style="color:#d42b1a">정합성에 맞는 데이터가 없습니다.</span>';
       }
       const allBlocks = [];
-      let regex = /\{'createdAt': Timestamp[\s\S]*?'delivered': 1\}/g;
+      let regex = /\{'createdAt': Timestamp[\s\S]*?'delivered': \s*\d+\}/g;
       let lastIndex = 0;
       let m;
       while((m = regex.exec(raw)) !== null){
