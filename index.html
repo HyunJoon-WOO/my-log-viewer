@@ -208,7 +208,7 @@
       try {
         // textarea에서 정합성에 맞는 블록만 추출
         const raw = textarea.value;
-        const matches = raw.match(/\{'createdAt': Timestamp[\s\S]*?'delivered': 1\}/g);
+        const matches = raw.match(/\{'createdAt': Timestamp[\s\S]*?'delivered':\s*\d+\}/g);
         if(!matches || !matches.length) throw new Error('정합성 데이터가 없습니다.');
         // 파싱용 문자열 재생성 (줄바꿈으로 연결)
         const parseStr = matches.join('\n');
